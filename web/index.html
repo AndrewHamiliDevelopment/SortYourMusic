@@ -1109,8 +1109,9 @@ $(document).ready(
         if ('error' in args) {
             error("Sorry, I can't read your playlists from Spotify without authorization");
             $("#go").show();
-            $("#go").on('click', function() {
-                authorizeUser();
+            $("#go").on('click', async function(e) {
+                e.preventDefault();
+                await authorizeUser();
             });
         } else if ('code' in args) {
             // Authorization Code flow - exchange code for token
@@ -1134,8 +1135,9 @@ $(document).ready(
             } else {
                 error("Failed to authorize. Please try again.");
                 $("#go").show();
-                $("#go").on('click', function() {
-                    authorizeUser();
+                $("#go").on('click', async function(e) {
+                    e.preventDefault();
+                    await authorizeUser();
                 });
             }
         } else if ('access_token' in args) {
@@ -1153,8 +1155,9 @@ $(document).ready(
             });
         } else {
             $("#go").show();
-            $("#go").on('click', function() {
-                authorizeUser();
+            $("#go").on('click', async function(e) {
+                e.preventDefault();
+                await authorizeUser();
             });
         }
 
