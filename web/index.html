@@ -330,7 +330,7 @@ async function generateCodeChallenge(codeVerifier) {
 }
 
 async function authorizeUser() {
-    var scopes = 'playlist-read-private playlist-modify-private playlist-modify-public';
+    var scopes = 'playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-library-read user-read-private';
     
     // Generate PKCE parameters
     const codeVerifier = generateRandomString(64);
