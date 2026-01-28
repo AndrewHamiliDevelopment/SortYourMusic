@@ -1110,6 +1110,7 @@ $(document).ready(
         var args = parseArgs();
 
         console.log('Parsed args:', args);
+        console.log('Keys in args:', Object.keys(args));
         console.log('Button exists:', $('#go').length);
 
         if ('error' in args) {
