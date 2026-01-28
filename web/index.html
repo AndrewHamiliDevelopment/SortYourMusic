@@ -1104,7 +1104,7 @@ console.log('About to setup document.ready...');
 
 $(document).ready(
 
-    async function() {
+    function() {
         console.log('Document ready fired!');
         songTable = initTable();
         var args = parseArgs();
@@ -1115,38 +1115,47 @@ $(document).ready(
         if ('error' in args) {
             error("Sorry, I can't read your playlists from Spotify without authorization");
             $("#go").show();
-            $("#go").on('click', async function(e) {
+            $("#go").on('click', function(e) {
                 console.log('Button clicked!');
                 e.preventDefault();
-                await authorizeUser();
+                authorizeUser().catch(function(err) {
+                    console.error('Authorization error:', err);
+                });
             });
         } else if ('code' in args) {
             // Authorization Code flow - exchange code for token
             info("Authorizing...");
-            accessToken = await exchangeCodeForToken(args['code']);
-            
-            if (accessToken) {
-                // Clean up URL by removing query parameters
-                window.history.replaceState({}, document.title, window.location.pathname);
+            exchangeCodeForToken(args['code']).then(function(token) {
+                accessToken = token;
                 
-                $(".worker").hide();
-                fetchCurrentUserProfile(function(user) {
-                    if (user) {
-                        curUserID = user.id;
-                        $("#who").text(user.id);
-                        loadPlaylists(user.id);
-                    } else {
-                        error("Trouble getting the user profile");
-                    }
-                });
-            } else {
+                if (accessToken) {
+                    // Clean up URL by removing query parameters
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    
+                    $(".worker").hide();
+                    fetchCurrentUserProfile(function(user) {
+                        if (user) {
+                            curUserID = user.id;
+                            $("#who").text(user.id);
+                            loadPlaylists(user.id);
+                        } else {
+                            error("Trouble getting the user profile");
+                        }
+                    });
+                } else {
+                    error("Failed to authorize. Please try again.");
+                    $("#go").show();
+                    $("#go").on('click', function(e) {
+                        e.preventDefault();
+                        authorizeUser().catch(function(err) {
+                            console.error('Authorization error:', err);
+                        });
+                    });
+                }
+            }).catch(function(err) {
+                console.error('Token exchange error:', err);
                 error("Failed to authorize. Please try again.");
-                $("#go").show();
-                $("#go").on('click', async function(e) {
-                    e.preventDefault();
-                    await authorizeUser();
-                });
-            }
+            });
         } else if ('access_token' in args) {
             // Backward compatibility with Implicit Grant flow
             accessToken = args['access_token'];
@@ -1164,10 +1173,12 @@ $(document).ready(
             console.log('No args, showing login button');
             $("#go").show();
             console.log('Button visible:', $('#go').is(':visible'));
-            $("#go").on('click', async function(e) {
+            $("#go").on('click', function(e) {
                 console.log('Login button clicked!');
                 e.preventDefault();
-                await authorizeUser();
+                authorizeUser().catch(function(err) {
+                    console.error('Authorization error:', err);
+                });
             });
         }
 
