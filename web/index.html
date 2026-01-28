@@ -379,6 +379,10 @@ function parseArgs() {
 async function exchangeCodeForToken(code) {
     const codeVerifier = localStorage.getItem('code_verifier');
     
+    console.log('Attempting token exchange...');
+    console.log('Code:', code);
+    console.log('Code verifier exists:', !!codeVerifier);
+    
     const params = new URLSearchParams();
     params.append('grant_type', 'authorization_code');
     params.append('code', code);
@@ -395,11 +399,16 @@ async function exchangeCodeForToken(code) {
             body: params.toString()
         });
 
+        console.log('Token response status:', response.status);
+        
         if (!response.ok) {
-            throw new Error('Token exchange failed');
+            const errorText = await response.text();
+            console.error('Token exchange failed:', response.status, errorText);
+            throw new Error('Token exchange failed: ' + response.status);
         }
 
         const data = await response.json();
+        console.log('Token exchange successful!');
         localStorage.removeItem('code_verifier');
         return data.access_token;
     } catch (err) {
