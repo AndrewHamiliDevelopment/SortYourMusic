@@ -1100,9 +1100,12 @@ function initTable() {
     return table;
 }
 
+console.log('About to setup document.ready...');
+
 $(document).ready(
 
     async function() {
+        console.log('Document ready fired!');
         songTable = initTable();
         var args = parseArgs();
 
