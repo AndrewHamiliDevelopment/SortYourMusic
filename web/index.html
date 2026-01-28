@@ -303,17 +303,66 @@ function info(msg) {
     $("#info").text(msg);
 }
 
-function authorizeUser() {
+// PKCE helper functions
+function generateRandomString(length) {
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const values = crypto.getRandomValues(new Uint8Array(length));
+    return values.reduce((acc, x) => acc + possible[x % possible.length], "");
+}
+
+function sha256(plain) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(plain);
+    return crypto.subtle.digest('SHA-256', data);
+}
+
+function base64encode(input) {
+    return btoa(String.fromCharCode(...new Uint8Array(input)))
+        .replace(/=/g, '')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_');
+}
+
+async function generateCodeChallenge(codeVerifier) {
+    const hashed = await sha256(codeVerifier);
+    return base64encode(hashed);
+}
+
+async function authorizeUser() {
     var scopes = 'playlist-read-private playlist-modify-private playlist-modify-public';
+    
+    // Generate PKCE parameters
+    const codeVerifier = generateRandomString(64);
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+    
+    // Store code verifier for token exchange
+    localStorage.setItem('code_verifier', codeVerifier);
 
     var url = 'https://accounts.spotify.com/authorize?client_id=' + SPOTIFY_CLIENT_ID +
-        '&response_type=token' +
+        '&response_type=code' +
         '&scope=' + encodeURIComponent(scopes) +
-        '&redirect_uri=' + encodeURIComponent(SPOTIFY_REDIRECT_URI);
+        '&redirect_uri=' + encodeURIComponent(SPOTIFY_REDIRECT_URI) +
+        '&code_challenge_method=S256' +
+        '&code_challenge=' + codeChallenge;
     document.location = url;
 }
 
 function parseArgs() {
+    // Check for query parameters (Authorization Code flow)
+    var search = location.search.substring(1);
+    if (search) {
+        var all = search.split('&');
+        var args = {};
+        _.each(all, function(keyvalue) {
+            var kv = keyvalue.split('=');
+            var key = kv[0];
+            var val = kv[1];
+            args[key] = val;
+        });
+        return args;
+    }
+    
+    // Fallback to hash parameters (old Implicit flow for backward compatibility)
     var hash = location.hash.replace(/#/g, '');
     var all = hash.split('&');
     var args = {};
@@ -324,6 +373,38 @@ function parseArgs() {
         args[key] = val;
     });
     return args;
+}
+
+async function exchangeCodeForToken(code) {
+    const codeVerifier = localStorage.getItem('code_verifier');
+    
+    const params = new URLSearchParams();
+    params.append('grant_type', 'authorization_code');
+    params.append('code', code);
+    params.append('redirect_uri', SPOTIFY_REDIRECT_URI);
+    params.append('client_id', SPOTIFY_CLIENT_ID);
+    params.append('code_verifier', codeVerifier);
+
+    try {
+        const response = await fetch('https://accounts.spotify.com/api/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: params.toString()
+        });
+
+        if (!response.ok) {
+            throw new Error('Token exchange failed');
+        }
+
+        const data = await response.json();
+        localStorage.removeItem('code_verifier');
+        return data.access_token;
+    } catch (err) {
+        console.error('Error exchanging code for token:', err);
+        return null;
+    }
 }
 
 function callSpotify(type, url, json, callback) {
@@ -1020,7 +1101,7 @@ function initTable() {
 
 $(document).ready(
 
-    function() {
+    async function() {
         songTable = initTable();
         var args = parseArgs();
 
@@ -1031,7 +1112,34 @@ $(document).ready(
             $("#go").on('click', function() {
                 authorizeUser();
             });
+        } else if ('code' in args) {
+            // Authorization Code flow - exchange code for token
+            info("Authorizing...");
+            accessToken = await exchangeCodeForToken(args['code']);
+            
+            if (accessToken) {
+                // Clean up URL by removing query parameters
+                window.history.replaceState({}, document.title, window.location.pathname);
+                
+                $(".worker").hide();
+                fetchCurrentUserProfile(function(user) {
+                    if (user) {
+                        curUserID = user.id;
+                        $("#who").text(user.id);
+                        loadPlaylists(user.id);
+                    } else {
+                        error("Trouble getting the user profile");
+                    }
+                });
+            } else {
+                error("Failed to authorize. Please try again.");
+                $("#go").show();
+                $("#go").on('click', function() {
+                    authorizeUser();
+                });
+            }
         } else if ('access_token' in args) {
+            // Backward compatibility with Implicit Grant flow
             accessToken = args['access_token'];
             $(".worker").hide();
             fetchCurrentUserProfile(function(user) {
