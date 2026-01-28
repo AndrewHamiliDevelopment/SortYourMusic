@@ -613,6 +613,16 @@ function fetchAudioFeatures(ids) {
     return getSpotifyQ(url, { ids: cids});
 }
 
+function fetchAllAudioFeatures(ids) {
+    var maxFeaturesPerCall = 50;  // Reduced from 100 to be safe
+    var qs = [];
+    for (var i = 0; i < ids.length; i += maxFeaturesPerCall) {
+        var fids = ids.slice(i, i + maxFeaturesPerCall);
+        qs.push(fetchAudioFeatures(fids));
+    }
+    return Q.all(qs);
+}
+
 function fetchAlbums(ids) {
     var cids = ids.join(',');
     var url = "https://api.spotify.com/v1/albums";
@@ -722,7 +732,7 @@ function fetchPlaylistTracks(playlist) {
                     console.log('no track at', i);
                 }
             });
-            return Q.all([fetchAllAlbums(aids), fetchAudioFeatures(ids)]);
+            return Q.all([fetchAllAlbums(aids), fetchAllAudioFeatures(ids)]);
         })
         .then(function(results) {
             var allAlbums = results[0];
