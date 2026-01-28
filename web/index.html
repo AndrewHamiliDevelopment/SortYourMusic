@@ -1105,11 +1105,14 @@ $(document).ready(
         songTable = initTable();
         var args = parseArgs();
 
+        console.log('Parsed args:', args);
+        console.log('Button exists:', $('#go').length);
 
         if ('error' in args) {
             error("Sorry, I can't read your playlists from Spotify without authorization");
             $("#go").show();
             $("#go").on('click', async function(e) {
+                console.log('Button clicked!');
                 e.preventDefault();
                 await authorizeUser();
             });
@@ -1154,8 +1157,11 @@ $(document).ready(
                 }
             });
         } else {
+            console.log('No args, showing login button');
             $("#go").show();
+            console.log('Button visible:', $('#go').is(':visible'));
             $("#go").on('click', async function(e) {
+                console.log('Login button clicked!');
                 e.preventDefault();
                 await authorizeUser();
             });
