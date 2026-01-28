@@ -610,7 +610,10 @@ function formatDuration(dur) {
 function fetchAudioFeatures(ids) {
     var cids = ids.join(',');
     var url = "https://api.spotify.com/v1/audio-features";
-    return getSpotifyQ(url, { ids: cids});
+    return getSpotifyQ(url, { ids: cids}).catch(function(err) {
+        console.warn('Audio features unavailable:', err);
+        return { audio_features: [] };  // Return empty array on error
+    });
 }
 
 function fetchAllAudioFeatures(ids) {
@@ -732,7 +735,12 @@ function fetchPlaylistTracks(playlist) {
                     console.log('no track at', i);
                 }
             });
-            return Q.all([fetchAllAlbums(aids), fetchAllAudioFeatures(ids)]);
+            return Q.all([fetchAllAlbums(aids), fetchAllAudioFeatures(ids)])
+                .catch(function(error) {
+                    console.warn('Error fetching album/audio data:', error);
+                    // Return empty data on error to allow playlist to load
+                    return [[], []];
+                });
         })
         .then(function(results) {
             var allAlbums = results[0];
